@@ -187,7 +187,8 @@ class MainWindow(QObject):
         print("close")
         self.searchForDevice = False
         self.keepConnectionAlive = False
-        self.timer.stop()
+        if hasattr(self, 'timer'):
+            self.timer.stop()
         asyncio.ensure_future(self.cleanup(self))
 
     # UI Signal getDegree
