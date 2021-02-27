@@ -139,7 +139,7 @@ Window {
             to: 62.5
             from: 26
             value: backend.getCoffeeTemperature()
-            onMoved: backend.setTeaTemp(coffeeTempSlider.value * 100)
+            onMoved: backend.setCoffeeTemp(coffeeTempSlider.value * 100)
         }
 
         Image {
@@ -149,7 +149,7 @@ Window {
             width: 18
             height: 25
             anchors.left: parent.left
-            source: "output/main/SVGs/coffee-outline.svg"
+            source: "SVGs/coffee-outline.svg"
             anchors.leftMargin: 20
             fillMode: Image.PreserveAspectFit
         }
@@ -174,7 +174,7 @@ Window {
             width: 18
             height: 25
             anchors.left: parent.left
-            source: "output/main/SVGs/tea-outline.svg"
+            source: "SVGs/tea-outline.svg"
             fillMode: Image.PreserveAspectFit
             anchors.leftMargin: 20
         }
