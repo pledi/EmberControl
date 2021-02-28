@@ -28,8 +28,6 @@ class MainWindow(QObject):
         if self.globalSettings.value("teaTemp") is None:
             self.globalSettings.setValue("teaTemp", 5900)
         # Init
-        self.coffeeTemp = int(self.globalSettings.value("coffeeTemp"))
-        self.teaTemp = int(self.globalSettings.value("teaTemp"))
         self.keepConnectionAlive = True
         self.searchForDevice = True
         self.connectedClient = None
@@ -88,7 +86,7 @@ class MainWindow(QObject):
         if await self.connectedClient.is_connected():
             currentTemp = await self.connectedClient.read_gatt_char(TARGET_TEMP)
             TargetDegree = float(int.from_bytes(currentTemp, byteorder='little', signed=False)) * 0.01
-            print(TargetDegree)
+            print("Target temp set to {0}".format(TargetDegree))
         else:
             self.connectionChanged.emit(False)
             print("not connected")
@@ -111,8 +109,6 @@ class MainWindow(QObject):
             print("try setting the target temperature")
             newtarget = temp.to_bytes(2, 'little')
             await self.connectedClient.write_gatt_char(TARGET_TEMP, newtarget,False)
-            currentTarget = await self.connectedClient.read_gatt_char(TARGET_TEMP)
-            print("new target temp: {0}".format(currentTarget))
             # Send UI Signal
             self.getDegree.emit(float(temp * 0.01))
 
@@ -215,15 +211,15 @@ class MainWindow(QObject):
     @Slot(int)
     def setTeaTemp(self, temp):
         print((temp))
-        self.globalSettings.setValue("coffeeTemp", int(temp))
+        self.globalSettings.setValue("teaTemp", int(temp))
 
     @Slot(result=float)
     def getTeaTemperature(self):
-        return self.teaTemp * 0.01
+        return self.globalSettings.value("teaTemp") * 0.01
 
     @Slot(result=float)
     def getCoffeeTemperature(self):
-        return self.coffeeTemp * 0.01
+        return self.globalSettings.value("coffeeTemp") * 0.01
 
     @Slot(result=QColor)
     def getLEDColor(self):
@@ -233,12 +229,13 @@ class MainWindow(QObject):
 
     @Slot()
     def setCoffee(self):
-        asyncio.ensure_future(self.setToTemp(self, self.coffeeTemp))
+        asyncio.ensure_future(self.setToTemp(self, self.globalSettings.value("coffeeTemp")))
         asyncio.ensure_future(self.getTargetTemp(self))
 
     @Slot()
     def setTea(self):
-        asyncio.ensure_future(self.setToTemp(self, self.teaTemp))
+        asyncio.ensure_future(self.setToTemp(self, self.globalSettings.value("teaTemp")))
+        asyncio.ensure_future(self.getTargetTemp(self))
 
     @Slot()
     def openColorPicker(self):
