@@ -51,6 +51,7 @@ class MainWindow(QObject):
             if await self.connectedClient.is_connected():
                 currentTemp = await self.connectedClient.read_gatt_char(CURRENT_TEMP)
                 CurrentDegree = float(int.from_bytes(currentTemp, byteorder='little', signed=False)) * 0.01
+                CurrentDegree = round(CurrentDegree, 1)
                 print(CurrentDegree)
                 # Send UI Signal
                 self.getDegree.emit(float(CurrentDegree))
