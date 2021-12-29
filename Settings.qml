@@ -47,9 +47,9 @@ Window {
         anchors.top: parent.top
         anchors.horizontalCenterOffset: 3
         anchors.topMargin: 38
-        palette.button: backend.getLEDColor()
+        palette.button: backend.get_led_color()
         anchors.horizontalCenter: parent.horizontalCenter
-        onClicked: backend.openColorPicker()
+        onClicked: backend.open_color_picker()
     }
 
     Rectangle {
@@ -138,8 +138,8 @@ Window {
             stepSize: 0.5
             to: 62.5
             from: 26
-            value: backend.getCoffeeTemperature()
-            onMoved: backend.setCoffeeTemp(coffeeTempSlider.value * 100)
+            value: backend.get_coffee_temperature()
+            onMoved: backend.set_coffee_temp(coffeeTempSlider.value * 100)
         }
 
         Image {
@@ -161,10 +161,10 @@ Window {
             width: 196
             height: 40
             stepSize: 0.5
-            value: backend.getTeaTemperature()
+            value: backend.get_tea_temperature()
             to: 62.5
             from: 26
-            onMoved: backend.setTeaTemp(teaTempSlider.value * 100)
+            onMoved: backend.set_tea_temp(teaTempSlider.value * 100)
         }
 
         Image {
@@ -196,7 +196,7 @@ Window {
     Connections{
         target: backend
 
-        function onWroteColor(color) {
+        function onSetColor(color) {
             roundButton.palette.button = color
         }
 

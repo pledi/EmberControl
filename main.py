@@ -3,19 +3,12 @@ import sys
 import os
 import asyncio
 from struct import *
-from sys import platform
-from bleak import BleakScanner
-from bleak import BleakClient
-from qasync import QEventLoop, asyncClose
+from qasync import QEventLoop
 from PySide2.QtWidgets import QApplication, QColorDialog
 from PySide2.QtGui import QColor
 from PySide2.QtQml import QQmlApplicationEngine
-from PySide2.QtCore import QObject, Slot, Signal, QTimer, QSettings
-
-TARGET_TEMP = "fc540003-236c-4c94-8fa9-944a3e5353fa"
-LED_COLOR_UUID = "fc540014-236c-4c94-8fa9-944a3e5353fa"
-CURRENT_TEMP = "fc540002-236c-4c94-8fa9-944a3e5353fa"
-CURRENT_BAT = "fc540007-236c-4c94-8fa9-944a3e5353fa"
+from PySide2.QtCore import QObject, Slot, Signal, QSettings
+from mug.mug import Mug
 
 class MainWindow(QObject):
     def __init__(self):
@@ -31,220 +24,103 @@ class MainWindow(QObject):
         self.keepConnectionAlive = True
         self.searchForDevice = True
         self.connectedClient = None
-        # try to connect
-        asyncio.ensure_future(self.connectToMug(self))
+        self.mug = Mug(True, self.globalSettings.value("coffeeTemp"),self.globalSettings.value("teaTemp"))
 
+    # UI Signals
+    getDegree = Signal(float)
+    getBattery = Signal(float)
+    getColor = Signal(QColor)
+    setColor = Signal(QColor)
+    connectionChanged = Signal(bool)
 
-    # function to get the current temp from the async loop.
-    def fetchCurrentTemperature(self):
-        if self.connectedClient is not None:
-            asyncio.ensure_future(self.getCurrentTemp(self))
-
-    # function to get the current temp from the async loop.
-    def fetchCurrentBattery(self):
-        if self.connectedClient is not None:
-            asyncio.ensure_future(self.getCurrentBattery(self))
-
-    @staticmethod
-    async def getCurrentTemp(self):
-        try:
-            if await self.connectedClient.is_connected():
-                currentTemp = await self.connectedClient.read_gatt_char(CURRENT_TEMP)
-                CurrentDegree = float(int.from_bytes(currentTemp, byteorder='little', signed=False)) * 0.01
-                CurrentDegree = round(CurrentDegree, 1)
-                print(CurrentDegree)
-                # Send UI Signal
-                self.getDegree.emit(float(CurrentDegree))
-            else:
-                self.connectionChanged.emit(False)
-                print("not connected")
-        except Exception as exc:
-            print('Error: {}'.format(exc))
-
-    @staticmethod
-    async def setLEDColor(self, color):
-        if await self.connectedClient.is_connected():
-            await self.connectedClient.write_gatt_char(LED_COLOR_UUID, color, False)
-            print("Changed Color to {0}".format(color))
-        else:
-            self.connectionChanged.emit(False)
-            print("not connected")
-
-    @staticmethod
-    async def fetchLEDColor(self):
-        if await self.connectedClient.is_connected():
-            c = await self.connectedClient.read_gatt_char(LED_COLOR_UUID)
-            self.ledColor = QColor(c[0],c[1],c[2],c[3])
-            # Send UI Signal
-            self.getColor.emit(self.ledColor)
-            print("Changed Color to {0}".format(self.ledColor))
-        else:
-            self.connectionChanged.emit(False)
-            print("not connected")
-
-    @staticmethod
-    async def getTargetTemp(self):
-        if await self.connectedClient.is_connected():
-            currentTemp = await self.connectedClient.read_gatt_char(TARGET_TEMP)
-            TargetDegree = float(int.from_bytes(currentTemp, byteorder='little', signed=False)) * 0.01
-            print("Target temp set to {0}".format(TargetDegree))
-        else:
-            self.connectionChanged.emit(False)
-            print("not connected")
-
-    @staticmethod
-    async def getCurrentBattery(self):
-
-        if await self.connectedClient.is_connected():
-            currentBat = await self.connectedClient.read_gatt_char(CURRENT_BAT)
-            print(float(currentBat[0]))
-            # Send UI Signal
-            self.getBattery.emit(float(currentBat[0]))
-        else:
-            self.connectionChanged.emit(False)
-            print("not connected")
-
-    @staticmethod
-    async def setToTemp(self, temp):
-        if await self.connectedClient.is_connected():
-            print("try setting the target temperature")
-            newtarget = temp.to_bytes(2, 'little')
-            await self.connectedClient.write_gatt_char(TARGET_TEMP, newtarget,False)
-            # Send UI Signal
-            self.getDegree.emit(float(temp * 0.01))
-
-        else:
-            self.connectionChanged.emit(False)
-            print("not connected")
-
-    @staticmethod
-    async def cleanup(self):
-        tasks = [t for t in asyncio.all_tasks() if t is not
-                 asyncio.current_task()]
-        [task.cancel() for task in tasks]
-        await asyncio.gather(*tasks, return_exceptions=True)
-        loop.stop()
-        print("stopped")
-
-    @staticmethod
-    async def connectToMug(self):
-        try:
-            print("Searching..", end='')
-            self.connectionChanged.emit(False)
-            # Search for the mug as long til we find it.
-            while self.searchForDevice:
-                print('.', end='')
-                scanner = BleakScanner()
-                # scanner.register_detection_callback(detection_callback)
-                await scanner.start()
-                await asyncio.sleep(5.0)
-                await scanner.stop()
-                devices = await scanner.get_discovered_devices()
-
-                for device in devices:
-                    if device.name == "Ember Ceramic Mug":
-                        # We found the ember mug!
-                        print(device.address)
-                        print(device.name)
-                        print(device.details)
-                        # try to connect to the mug
-                        async with BleakClient(device) as client:
-                            self.connectedClient = client
-                            x = await client.is_connected()
-                            print("Connected: {0}".format(x))
-                            if platform != "darwin":
-                                # Avoid this on mac, since CoreBluetooth doesnt support pairing.
-                                y = await client.pair()
-                                print("Paired: {0}".format(y))
-                            # Set connection parameters and use signal to send it to the UI.
-                            self.keepConnectionAlive = True
-                            self.connectionChanged.emit(True)
-                            await self.fetchLEDColor(self)
-                            # Auto update Temp and Battery
-                            self.timer = QTimer()
-                            self.timer.timeout.connect(lambda: self.fetchCurrentTemperature())
-                            self.timer.timeout.connect(lambda: self.fetchCurrentBattery())
-                            self.timer.start(3000)
-
-                            # we are connected, get the settings we need.
-                            while self.keepConnectionAlive:
-                                # We stay in here to keep the client alive
-                                # once keepConnectionAlive is set to false
-                                # the client will also disconnect automatically
-                                print(".")
-                                await asyncio.sleep(2)
-                                self.keepConnectionAlive = await self.connectedClient.is_connected()
-
-        except Exception as exc:
-            self.connectionChanged.emit(False)
-            print('Error: {}'.format(exc))
-
+    # UI SLOTS
     @Slot()
-    def closeEvent(self):
+    def close_event(self):
         print("close")
         self.searchForDevice = False
         self.keepConnectionAlive = False
         if hasattr(self, 'timer'):
             self.timer.stop()
-        asyncio.ensure_future(self.cleanup(self))
-
-    # UI Signal getDegree
-    getDegree = Signal(float)
-
-    # UI Signal getBattery
-    getBattery = Signal(float)
-
-    # UI Signal getColor
-    getColor = Signal(QColor)
-
-    # UI Signal wroteColor
-    wroteColor = Signal(QColor)
-
-    # UI Signal connectionChanged
-    connectionChanged = Signal(bool)
-
-    # UI SLOTS
+        asyncio.ensure_future(self.cleanup())
     @Slot(int)
-    def setCoffeeTemp(self, temp):
-        print((temp))
+    def set_coffee_temp(self, temp):
+        print("Set Coffee Temperature to {}".format(temp))
         self.globalSettings.setValue("coffeeTemp", int(temp))
 
     @Slot(int)
-    def setTeaTemp(self, temp):
-        print((temp))
+    def set_tea_temp(self, temp):
+        print("Set Tea Temperature to {}".format(temp))
         self.globalSettings.setValue("teaTemp", int(temp))
 
-    @Slot(result=float)
-    def getTeaTemperature(self):
+    @Slot(result = float)
+    def get_tea_temperature(self):
         return self.globalSettings.value("teaTemp") * 0.01
 
-    @Slot(result=float)
-    def getCoffeeTemperature(self):
+    @Slot(result = float)
+    def get_coffee_temperature(self):
         return self.globalSettings.value("coffeeTemp") * 0.01
-
-    @Slot(result=QColor)
-    def getLEDColor(self):
-        asyncio.ensure_future(self.fetchLEDColor(self))
-        print("color atm: {0}".format(self.ledColor))
-        return self.ledColor
+        
+    @Slot(result = QColor)
+    def get_led_color(self):
+        return self.currentColor
 
     @Slot()
-    def setCoffee(self):
-        asyncio.ensure_future(self.setToTemp(self, self.globalSettings.value("coffeeTemp")))
-        asyncio.ensure_future(self.getTargetTemp(self))
+    def set_coffee(self):
+        asyncio.ensure_future(self.mug.setTargetTemp(self.globalSettings.value("coffeeTemp")))
+        asyncio.ensure_future(self.mug.getTargetTemp())
 
     @Slot()
-    def setTea(self):
-        asyncio.ensure_future(self.setToTemp(self, self.globalSettings.value("teaTemp")))
-        asyncio.ensure_future(self.getTargetTemp(self))
+    def set_tea(self):
+        asyncio.ensure_future(self.mug.setTargetTemp(self.globalSettings.value("teaTemp")))
+        asyncio.ensure_future(self.mug.getTargetTemp())
 
     @Slot()
-    def openColorPicker(self):
-        col = QColorDialog.getColor(options=QColorDialog.ShowAlphaChannel)
+    def open_color_picker(self):
+        col = QColorDialog.getColor(options = QColorDialog.ShowAlphaChannel)
         if col.isValid():
             color = bytearray([col.red(), col.green(), col.blue(), col.alpha()])
-            asyncio.ensure_future(self.setLEDColor(self, color))
-            self.wroteColor.emit(col)
+            asyncio.ensure_future(self.mug.setLEDColor(color))
+            self.setColor.emit(col)
+    
+    # Threads 
+    @asyncio.coroutine
+    async def ConnectToMug(self):
+        await self.mug.connect()
+    
+    @asyncio.coroutine
+    async def UpdateUI(self):
+        """Coroutine to update the UI
+
+        Every 5 seconds we will update the UI elements
+        with the current values.
+
+        Returns:
+            nothing, it will run unless the routine is killed.
+        """
+        while True:        
+            if await self.mug.connectedClient.is_connected():
+                currentTemp = await self.mug.getCurrentTemp()
+                currentBat = await self.mug.getCurrentBattery()
+                ledColor = await self.mug.getCurrentLEDColor()
+                self.currentColor = QColor(ledColor[0], ledColor[1], ledColor[2], ledColor[3])  
+                # UI Signal Calls
+                self.connectionChanged.emit(True)
+                self.getDegree.emit(currentTemp)
+                self.getBattery.emit(currentBat)
+                self.setColor.emit(self.currentColor)
+                await asyncio.sleep(5)
+            else:
+                await asyncio.sleep(5) 
+                print("Mug disconnected")
+                self.connectionChanged.emit(False)    
+                  
+    async def cleanup(self):
+        tasks = [t for t in asyncio.all_tasks() if t is not
+                 asyncio.current_task()]
+        [task.cancel() for task in tasks]
+        await asyncio.gather(*tasks, return_exceptions = True)
+        loop.stop()
+        print("stopped all tasks")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -261,11 +137,13 @@ if __name__ == "__main__":
     engine.load(os.path.join(os.path.dirname(__file__), "main.qml"))
 
     try:
+        asyncio.ensure_future(main.ConnectToMug())
+        asyncio.ensure_future(main.UpdateUI())
         loop.run_forever()
     except (KeyboardInterrupt, SystemExit) as e:
-        logging.info(f"{e.__class__.__name__} received")
+        print(f"{e.__class__.__name__} received")
     except Exception as e:
-        exception_manager.handle_exception(e)
+        print(e)
     finally:
         sys.exit(0)
 

@@ -154,7 +154,7 @@ Window {
                 anchors.topMargin: 0
                 anchors.rightMargin: 0
                 onClicked: {
-                    backend.closeEvent()
+                    backend.close_event()
                     window.close()
                 }
             }
@@ -270,7 +270,7 @@ Window {
                         id: coffeeBtn
                         iconSource: "SVGs/coffee-outline.png"
                         display: AbstractButton.IconOnly
-                        onClicked: backend.setCoffee()
+                        onClicked: backend.set_coffee()
                     }
 
                     CustomBtn {
@@ -278,7 +278,7 @@ Window {
                         text: qsTr("Button")
                         iconSource: "SVGs/tea-outline.png"
                         display: AbstractButton.IconOnly
-                        onClicked: backend.setTea()
+                        onClicked: backend.set_tea()
                     }
 
                     CustomBtn {
@@ -316,6 +316,7 @@ Window {
         //Still needs to automatically hide or kill the settings window.
         function onConnectionChanged(connected){
             if(connected){
+                busyIndicator.visible = false
                 expand.enabled = true
                 coffeeBtn.enabled = true
                 button1.enabled = true
