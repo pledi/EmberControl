@@ -1,5 +1,4 @@
 import asyncio
-from PySide2.QtGui import QColor
 from bleak import BleakScanner, BleakClient
 from sys import platform
 
@@ -46,10 +45,10 @@ class Mug:
             the target temperature as float.
         """
         if await self.connectedClient.is_connected():
-            currentTarTemp = await self.connectedClient.read_gatt_char(UUIDS["target_temp"])
-            TargetDegree = float(int.from_bytes(currentTarTemp, byteorder = 'little', signed = False)) * 0.01
-            print("Target temp set to {0}".format(TargetDegree))
-            return TargetDegree
+            currentTargetTemp = await self.connectedClient.read_gatt_char(UUIDS["target_temp"])
+            targetDegree = float(int.from_bytes(currentTargetTemp, byteorder = 'little', signed = False)) * 0.01
+            print("Target temp set to {0}".format(targetDegree))
+            return targetDegree
         else:
             print("not connected")
             
@@ -91,10 +90,11 @@ class Mug:
                 )
                 # Unit conversion
                 if not self.useCelcius:
-                    CurrentDegree = (currentDegree * 1.8) + 32
-                currentDegree = round(currentDegree, 1)
-                print("Current Temp: {0}".format(currentDegree))
-                return currentDegree
+                    currentTemperature = (currentDegree * 1.8) + 32
+                else: 
+                    currentTemperature = round(currentDegree, 1)
+                print("Current Temp: {0}".format(currentTemperature))
+                return currentTemperature
             else:
                 print("not connected")
         except Exception as exc:
